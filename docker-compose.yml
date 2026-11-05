@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: diotytio_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-diotytio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Definissez POSTGRES_PASSWORD dans .env}
+      POSTGRES_DB: ${POSTGRES_DB:-diotytio}
+    ports:
+      - "${POSTGRES_PORT:-5436}:5432"
+    volumes:
+      - diotytio_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-diotytio} -d ${POSTGRES_DB:-diotytio}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  diotytio_pgdata:

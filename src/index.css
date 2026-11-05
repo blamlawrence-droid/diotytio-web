@@ -1,0 +1,610 @@
+/* =====================================================
+   DIOTYTIO — Design System v3
+   Dark / Light theme + Bottom nav on ALL devices
+   ===================================================== */
+
+/* ── DARK THEME (default) ─────────────────────────── */
+:root,
+[data-theme="dark"] {
+  --bg-color:      #000000;
+  --bg-secondary:  #0e0e0e;
+  --bg-card:       rgba(255,255,255,0.04);
+  --bg-input:      rgba(255,255,255,0.05);
+  --text-primary:  #ffffff;
+  --text-secondary:#9a9a9a;
+  --border-color:  rgba(255,255,255,0.08);
+  --nav-bg:        rgba(0,0,0,0.92);
+  --header-bg:     rgba(0,0,0,0.88);
+  --shadow:        0 8px 32px rgba(0,0,0,0.55);
+}
+
+/* ── LIGHT THEME ──────────────────────────────────── */
+[data-theme="light"] {
+  --bg-color:      #f0f2f5;
+  --bg-secondary:  #ffffff;
+  --bg-card:       rgba(255,255,255,0.85);
+  --bg-input:      rgba(0,0,0,0.04);
+  --text-primary:  #0d0d0d;
+  --text-secondary:#666666;
+  --border-color:  rgba(0,0,0,0.09);
+  --nav-bg:        rgba(255,255,255,0.95);
+  --header-bg:     rgba(255,255,255,0.92);
+  --shadow:        0 4px 24px rgba(0,0,0,0.10);
+}
+
+/* ── SHARED TOKENS ────────────────────────────────── */
+:root {
+  --primary:        #8a2be2;
+  --primary-light:  #a855f7;
+  --secondary:      #45a29e;
+  --accent:         #66fcf1;
+  --danger:         #ff4c4c;
+  --success:        #2ecc71;
+  --gradient-main:  linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  --glass-border:   var(--border-color);
+  --glass-shadow:   var(--shadow);
+  --border-radius:  16px;
+  --nav-height:     65px;
+
+  /* Fluid spacing */
+  --sp-xs: clamp(6px,  1.8vw, 10px);
+  --sp-sm: clamp(10px, 2.5vw, 16px);
+  --sp-md: clamp(14px, 3vw,   22px);
+  --sp-lg: clamp(20px, 4vw,   32px);
+
+  /* Fluid typography */
+  --f-xs:  clamp(10px, 2.2vw, 12px);
+  --f-sm:  clamp(12px, 2.6vw, 14px);
+  --f-md:  clamp(13px, 2.8vw, 16px);
+  --f-lg:  clamp(16px, 3.5vw, 20px);
+  --f-xl:  clamp(20px, 4.5vw, 28px);
+  --f-2xl: clamp(24px, 6vw,   38px);
+
+  /* Legacy aliases (keep pages working) */
+  --spacing-xs: var(--sp-xs);
+  --spacing-sm: var(--sp-sm);
+  --spacing-md: var(--sp-md);
+  --spacing-lg: var(--sp-lg);
+  --font-xs:  var(--f-xs);
+  --font-sm:  var(--f-sm);
+  --font-md:  var(--f-md);
+  --font-lg:  var(--f-lg);
+  --font-xl:  var(--f-xl);
+  --font-2xl: var(--f-2xl);
+  --bg-secondary: var(--bg-secondary);
+}
+
+/* ── RESET ────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  height: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Outfit', sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  min-height: 100%;
+  transition: background-color 0.35s ease, color 0.35s ease;
+}
+
+/* All elements inherit theme transitions */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color;
+  transition-duration: 0.3s;
+  transition-timing-function: ease;
+}
+/* Exclude transitions from things that shouldn't animate */
+svg, img, button svg { transition: none; }
+.animate-fade-in { transition: none; }
+[class*="btn"] { transition: transform 0.25s, box-shadow 0.25s, background-color 0.3s; }
+
+a  { text-decoration: none; color: inherit; }
+img { max-width: 100%; display: block; }
+
+button {
+  font-family: 'Outfit', sans-serif;
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+/* ── APP SHELL ────────────────────────────────────── */
+#root {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg-color);
+}
+
+.page-container {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding-bottom: calc(var(--nav-height) + 4px);
+  background-color: var(--bg-color);
+  transition: background-color 0.3s ease;
+}
+
+/* ── LIGHT THEME — text overrides ────────────────── */
+/* ═══════════════════════════════════════════════════
+   LIGHT THEME — Force text visibility
+   Override all hardcoded white/dark colors in JSX
+   ═══════════════════════════════════════════════════ */
+
+/* Base text */
+[data-theme="light"] body,
+[data-theme="light"] .page-container,
+[data-theme="light"] .container {
+  color: #0d0d0d;
+  background-color: #f0f2f5;
+}
+
+/* All text elements */
+[data-theme="light"] h1,
+[data-theme="light"] h2,
+[data-theme="light"] h3,
+[data-theme="light"] h4,
+[data-theme="light"] h5,
+[data-theme="light"] h6 {
+  color: #0d0d0d !important;
+}
+
+[data-theme="light"] p,
+[data-theme="light"] span:not(.text-gradient),
+[data-theme="light"] label,
+[data-theme="light"] li,
+[data-theme="light"] div {
+  color: inherit;
+}
+
+/* Glass panels */
+[data-theme="light"] .glass-panel {
+  background: rgba(255,255,255,0.92) !important;
+  border-color: rgba(0,0,0,0.08) !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.08) !important;
+  color: #0d0d0d;
+}
+
+/* Force all direct children text inside glass panels to be dark */
+[data-theme="light"] .glass-panel h1,
+[data-theme="light"] .glass-panel h2,
+[data-theme="light"] .glass-panel h3,
+[data-theme="light"] .glass-panel h4,
+[data-theme="light"] .glass-panel p,
+[data-theme="light"] .glass-panel span:not(.text-gradient),
+[data-theme="light"] .glass-panel div,
+[data-theme="light"] .glass-panel label {
+  color: #0d0d0d;
+}
+
+/* Containers and sections */
+[data-theme="light"] .container h1,
+[data-theme="light"] .container h2,
+[data-theme="light"] .container h3,
+[data-theme="light"] .container p,
+[data-theme="light"] .container span:not(.text-gradient),
+[data-theme="light"] .container div {
+  color: inherit;
+}
+
+/* Navigation */
+[data-theme="light"] .glass-nav {
+  background: rgba(255,255,255,0.97) !important;
+  border-color: rgba(0,0,0,0.08) !important;
+}
+
+[data-theme="light"] .nav-item {
+  color: #888;
+}
+
+[data-theme="light"] .nav-item.active {
+  color: var(--primary) !important;
+}
+
+/* Headers */
+[data-theme="light"] header {
+  background: rgba(255,255,255,0.97) !important;
+}
+
+[data-theme="light"] header h2,
+[data-theme="light"] header span,
+[data-theme="light"] header div {
+  color: #0d0d0d !important;
+}
+
+/* Inputs */
+[data-theme="light"] .form-input,
+[data-theme="light"] input,
+[data-theme="light"] textarea,
+[data-theme="light"] select {
+  background: rgba(0,0,0,0.04) !important;
+  border-color: rgba(0,0,0,0.1) !important;
+  color: #0d0d0d !important;
+}
+
+[data-theme="light"] input::placeholder,
+[data-theme="light"] textarea::placeholder {
+  color: #999 !important;
+}
+
+/* Buttons with hardcoded white text — keep gradient buttons white */
+[data-theme="light"] .btn-primary {
+  color: #fff !important;
+}
+
+/* Transparent/ghost buttons */
+[data-theme="light"] button:not(.btn-primary):not([class*="btn"]) {
+  color: inherit;
+}
+
+/* Force text-secondary tokens */
+[data-theme="light"] [style*="color: 'var(--text-secondary)'"],
+[data-theme="light"] [style*="color: var(--text-secondary)"] {
+  color: #666 !important;
+}
+
+/* FAB center button */
+[data-theme="light"] .center-fab {
+  background: #fff !important;
+  border-color: #f0f2f5 !important;
+}
+
+/* Specific hardcoded white text inside divs — force dark */
+[data-theme="light"] .container > div,
+[data-theme="light"] .container > div > div {
+  color: inherit;
+}
+
+/* Icon colors — keep them visible */
+[data-theme="light"] svg {
+  color: inherit;
+}
+
+/* ── CRITICAL: Override inline style color:#fff in light mode ── */
+/* These target JSX elements that hardcode color white */
+[data-theme="light"] .container * {
+  --text-white-override: #0d0d0d;
+}
+
+/* Cards / stat panels text */
+[data-theme="light"] .glass-panel h3,
+[data-theme="light"] .glass-panel p,
+[data-theme="light"] .glass-panel span {
+  color: #0d0d0d;
+}
+
+/* Exception: colored accents must stay */
+[data-theme="light"] .glass-panel span[style*="color: 'var(--primary)'"],
+[data-theme="light"] .glass-panel span[style*="color: var(--primary)"],
+[data-theme="light"] .glass-panel span[style*="color: 'var(--success)'"],
+[data-theme="light"] .glass-panel span[style*="color: var(--success)"],
+[data-theme="light"] .glass-panel span[style*="color: 'var(--danger)'"],
+[data-theme="light"] .glass-panel span[style*="color: var(--danger)"],
+[data-theme="light"] .glass-panel span[style*="color: '#"],
+[data-theme="light"] .glass-panel h3[style*="color:"],
+[data-theme="light"] .glass-panel p[style*="color:"] {
+  color: revert;
+}
+
+/* Balance / money amounts keep their accent color */
+[data-theme="light"] [style*="color: 'var(--accent)'"] { color: var(--secondary) !important; }
+[data-theme="light"] [style*="color: var(--accent)"]   { color: var(--secondary) !important; }
+
+/* Text-secondary in light mode */
+[data-theme="light"] [style*="color: 'var(--text-secondary)'"],
+[data-theme="light"] [style*="color: var(--text-secondary)"] {
+  color: #666 !important;
+}
+
+/* Text-primary in light mode */
+[data-theme="light"] [style*="color: 'var(--text-primary)'"],
+[data-theme="light"] [style*="color: var(--text-primary)"] {
+  color: #0d0d0d !important;
+}
+
+/* White hardcoded text — override to dark in light theme */
+[data-theme="light"] [style*="color: '#fff'"],
+[data-theme="light"] [style*='color: "#fff"'],
+[data-theme="light"] [style*="color: 'white'"] {
+  color: #0d0d0d !important;
+}
+
+/* EXCEPTION: keep white text inside gradient buttons and overlays */
+[data-theme="light"] button[style*="background: 'var(--primary)'"] *,
+[data-theme="light"] button[style*="background: var(--primary)"] *,
+[data-theme="light"] .btn-primary * { color: #fff !important; }
+
+/* Hero banner overlay text always stays white (dark overlay behind it) */
+[data-theme="light"] [style*="background: 'linear-gradient(to right, rgba(0,0,0"] h1,
+[data-theme="light"] [style*="background: 'linear-gradient(to right, rgba(0,0,0"] p { color: #fff !important; }
+
+/* ── CONTAINER — responsive max-width ──────────────── */
+.container {
+  width: 100%;
+  padding: var(--sp-sm) var(--sp-md);
+}
+
+@media (min-width: 600px) {
+  .container {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: var(--sp-md) var(--sp-lg);
+  }
+}
+
+@media (min-width: 1024px) {
+  .container {
+    max-width: 860px;
+  }
+}
+
+@media (min-width: 1440px) {
+  .container {
+    max-width: 1080px;
+  }
+}
+
+/* ── GLASSMORPHISM ────────────────────────────────── */
+.glass-panel {
+  background: var(--bg-card);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius);
+  box-shadow: var(--glass-shadow);
+  padding: var(--sp-md);
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+.glass-nav {
+  background: var(--nav-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--glass-border);
+  transition: background 0.3s ease;
+}
+
+/* ── TYPOGRAPHY ───────────────────────────────────── */
+.text-gradient {
+  background: var(--gradient-main);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+h1 { font-size: var(--f-2xl); font-weight: 800; }
+h2 { font-size: var(--f-xl);  font-weight: 800; }
+h3 { font-size: var(--f-lg);  font-weight: 700; }
+
+/* ── BUTTONS ──────────────────────────────────────── */
+.btn-primary {
+  background: var(--gradient-main);
+  color: #fff;
+  font-weight: 700;
+  padding: clamp(12px,3vw,16px) clamp(18px,4vw,28px);
+  border-radius: 50px;
+  box-shadow: 0 4px 20px rgba(138,43,226,0.35);
+  transition: transform 0.25s, box-shadow 0.25s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: var(--f-md);
+  font-family: 'Outfit', sans-serif;
+  width: 100%;
+}
+
+.btn-primary:hover  { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(138,43,226,0.5); }
+.btn-primary:active { transform: translateY(0);    box-shadow: 0 2px 10px rgba(138,43,226,0.3); }
+
+/* ── INPUTS ───────────────────────────────────────── */
+.form-input {
+  width: 100%;
+  padding: clamp(12px,3vw,16px) clamp(14px,3vw,20px);
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-family: 'Outfit', sans-serif;
+  font-size: var(--f-md);
+  transition: all 0.3s;
+  outline: none;
+}
+
+.form-input::placeholder { color: var(--text-secondary); opacity: 0.7; }
+
+.form-input:focus {
+  border-color: var(--primary);
+  background: rgba(138,43,226,0.06);
+  box-shadow: 0 0 0 3px rgba(138,43,226,0.12);
+}
+
+/* ── ANIMATIONS ───────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-glow {
+  0%,100% { box-shadow: 0 0 0 2px var(--primary), 0 4px 18px rgba(138,43,226,0.5); }
+  50%      { box-shadow: 0 0 0 2px var(--primary), 0 6px 28px rgba(138,43,226,0.9); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.35s ease forwards;
+}
+
+/* ── BOTTOM NAV — all devices ─────────────────────── */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: var(--nav-height);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  z-index: 1000;
+}
+
+/* Tablet (600px+): center nav at 60% */
+@media (min-width: 600px) {
+  .bottom-nav {
+    width: 60%;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    border-radius: 20px 20px 0 0;
+    border-left: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color);
+  }
+}
+
+/* Desktop (1024px+): 50% of screen, floating above bottom */
+@media (min-width: 1024px) {
+  .bottom-nav {
+    width: 50%;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    bottom: 12px;
+    border-radius: 28px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+
+  /* Extra page bottom padding on desktop for floating nav */
+  .page-container {
+    padding-bottom: calc(var(--nav-height) + 24px);
+  }
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: clamp(9px, 2vw, 11px);
+  gap: 3px;
+  transition: color 0.25s;
+  flex: 1;
+  height: 100%;
+  padding: 8px 0 4px;
+  min-width: 0;
+}
+
+.nav-item.active  { color: var(--primary); }
+[data-theme="light"] .nav-item.active { color: var(--primary); }
+
+.nav-item svg {
+  width: clamp(20px,5vw,24px);
+  height: clamp(20px,5vw,24px);
+  flex-shrink: 0;
+  transition: transform 0.25s, filter 0.25s;
+}
+
+.nav-item.active svg {
+  transform: scale(1.15);
+  filter: drop-shadow(0 0 5px rgba(138,43,226,0.6));
+}
+
+.nav-item span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  text-align: center;
+}
+
+/* FAB center button */
+.center-fab {
+  position: relative;
+  top: clamp(-20px, -4vw, -26px);
+  width: clamp(54px, 13vw, 64px);
+  height: clamp(54px, 13vw, 64px);
+  background: #000;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid var(--bg-color);
+  flex-shrink: 0;
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+[data-theme="light"] .center-fab {
+  background: #fff;
+  border-color: var(--bg-color);
+  box-shadow: 0 0 0 2px var(--primary), 0 6px 24px rgba(138,43,226,0.4);
+}
+
+/* ── SCROLLBAR ────────────────────────────────────── */
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(138,43,226,0.35); border-radius: 3px; }
+
+/* ── RESPONSIVE FINE-TUNING ───────────────────────── */
+/* Very small (< 360px) */
+@media (max-width: 359px) {
+  :root { --nav-height: 58px; }
+  .glass-panel { padding: 12px; }
+  .nav-item svg { width: 18px; height: 18px; }
+  .center-fab { width: 46px; height: 46px; top: -14px; }
+}
+
+/* iOS notch/home bar */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .bottom-nav {
+    padding-bottom: env(safe-area-inset-bottom);
+    height: calc(var(--nav-height) + env(safe-area-inset-bottom));
+  }
+  .page-container {
+    padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom) + 4px);
+  }
+}
+
+/* Landscape phones */
+@media (max-height: 500px) and (orientation: landscape) {
+  :root { --nav-height: 52px; }
+  .center-fab { top: -12px; width: 48px; height: 48px; }
+}
+
+/* ── THEME TOGGLE BUTTON ──────────────────────────── */
+.theme-toggle {
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  position: relative;
+  background: var(--border-color);
+  border: 1px solid var(--border-color);
+  transition: background 0.3s;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.theme-toggle.dark  { background: rgba(138,43,226,0.3); }
+.theme-toggle.light { background: rgba(255,200,0,0.3); }
+
+.theme-toggle-knob {
+  position: absolute;
+  top: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  transition: transform 0.3s, background 0.3s;
+}
+
+.theme-toggle.dark  .theme-toggle-knob { transform: translateX(2px);  background: var(--primary); }
+.theme-toggle.light .theme-toggle-knob { transform: translateX(20px); background: #f39c12; }
