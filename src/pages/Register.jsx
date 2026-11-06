@@ -34,6 +34,10 @@ const Register = () => {
       showModal({ type: 'alert', title: 'Erreur', message: 'Le mot de passe doit contenir au moins 1 majuscule.' });
       return;
     }
+    if (!/[a-z]/.test(password)) {
+      showModal({ type: 'alert', title: 'Erreur', message: 'Le mot de passe doit contenir au moins 1 minuscule.' });
+      return;
+    }
     if (!/[0-9]/.test(password)) {
       showModal({ type: 'alert', title: 'Erreur', message: 'Le mot de passe doit contenir au moins 1 chiffre.' });
       return;

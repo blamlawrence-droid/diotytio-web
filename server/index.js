@@ -5,9 +5,15 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import crypto from 'crypto';
 import { PrismaClient } from '@prisma/client';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const prisma = new PrismaClient();
 const app = express();
+app.set('trust proxy', 1);
 
 // ── Security Headers ──
 app.use(helmet({
@@ -28,16 +34,8 @@ app.use(helmet({
 }));
 
 // ── CORS — strict origin validation ──
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:5174').split(',');
 app.use(cors({
-  origin: (origin, cb) => {
-    if (!origin) {
-      if (process.env.NODE_ENV === 'production') return cb(new Error('Origin required'));
-      return cb(null, true);
-    }
-    if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
-    cb(new Error('Origin not allowed'));
-  },
+  origin: true,
   credentials: true,
 }));
 
@@ -1077,6 +1075,16 @@ app.post('/api/webhook', webhookLimiter, (req, res) => {
     console.error('Webhook error:', err.message);
     res.status(500).json({ error: 'Erreur serveur.' });
   }
+});
+
+// ── Serve frontend build (online/production) ──
+const distPath = path.join(__dirname, '..', 'dist');
+app.use(express.static(distPath));
+app.use((req, res, next) => {
+  if (req.method !== 'GET' || req.path.startsWith('/api')) return next();
+  res.sendFile(path.join(distPath, 'index.html'), (err) => {
+    if (err) next(err);
+  });
 });
 
 // ── 404 ──
