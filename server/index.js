@@ -1,17 +1,15 @@
-import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import crypto from 'crypto';
-import { PrismaClient } from '@prisma/client';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { createRepository } from '../db/index.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+function env(name) {
+  return globalThis.Netlify?.env ? Netlify.env.get(name) : process.env[name];
+}
 
-const prisma = new PrismaClient();
+export function createApp({ repository = createRepository() } = {}) {
 const app = express();
 app.set('trust proxy', 1);
 
@@ -98,17 +96,34 @@ const webhookLimiter = rateLimit({
   message: { error: 'Trop de webhooks.' },
 });
 
+app.get('/api/health', async (_req, res) => {
+  try {
+    await repository.$connect();
+    res.json({ status: 'ok', database: 'connected' });
+  } catch {
+    res.status(503).json({ error: 'Base de données indisponible. Réessayez après le déploiement.' });
+  }
+});
 app.use('/api/', generalLimiter);
+
+let adminReady;
+app.use('/api', async (_req, _res, next) => {
+  try {
+    adminReady ||= ensureAdmin().catch(error => { adminReady = null; throw error; });
+    await adminReady;
+    next();
+  } catch (error) { next(error); }
+});
 
 // ── Constants ──
 const GENIUSPAY_BASE = 'https://geniuspay.ci/api/v1/merchant';
-const API_KEY = process.env.GENIUSPAY_API_KEY || '';
-const API_SECRET = process.env.GENIUSPAY_API_SECRET || '';
-const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || '';
-const SUCCESS_URL = process.env.PAYMENT_SUCCESS_URL || 'http://localhost:5173/payment/success';
-const ERROR_URL = process.env.PAYMENT_ERROR_URL || 'http://localhost:5173/payment/error';
-const ADMIN_PHONE = process.env.ADMIN_PHONE || '';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+const API_KEY = env('GENIUSPAY_API_KEY') || '';
+const API_SECRET = env('GENIUSPAY_API_SECRET') || '';
+const WEBHOOK_SECRET = env('WEBHOOK_SECRET') || '';
+const SUCCESS_URL = env('PAYMENT_SUCCESS_URL') || `${env('URL') || 'http://localhost:8889'}/payment/success`;
+const ERROR_URL = env('PAYMENT_ERROR_URL') || `${env('URL') || 'http://localhost:8889'}/payment/error`;
+const ADMIN_PHONE = env('ADMIN_PHONE') || '';
+const ADMIN_PASSWORD = env('ADMIN_PASSWORD') || '';
 const SESSION_TTL = 30 * 60 * 1000; // 30 minutes
 
 const ALLOWED_COUNTRIES = ['CI', 'SN', 'ML', 'BF', 'BJ', 'TG', 'GN', 'NE'];
@@ -258,7 +273,7 @@ function resetFailures(phone) {
 // ── Sessions (persisted in DB) ──
 async function createSession(userId, role) {
   const token = generateToken();
-  await prisma.session.create({
+  await repository.session.create({
     data: {
       token,
       userId,
@@ -275,12 +290,12 @@ async function requireAuth(req, res, next) {
     if (!token) {
       return res.status(401).json({ error: 'Token requis.' });
     }
-    const session = await prisma.session.findUnique({
+    const session = await repository.session.findUnique({
       where: { token },
       include: { user: true },
     });
     if (!session || session.expiresAt < new Date()) {
-      if (session) await prisma.session.delete({ where: { token } }).catch(() => {});
+      if (session) await repository.session.delete({ where: { token } }).catch(() => {});
       return res.status(401).json({ error: 'Session expirée ou invalide.' });
     }
     req.user = {
@@ -303,17 +318,12 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-// Clean expired sessions every 5 minutes
-setInterval(() => {
-  prisma.session.deleteMany({ where: { expiresAt: { lt: new Date() } } }).catch(() => {});
-}, 5 * 60 * 1000);
-
 // ── Deposit settings (admin-configured Flooz number + USSD template) ──
 const SETTINGS_KEY = 'deposit';
 const DEFAULT_DEPOSIT_SETTINGS = { depositPhone: '', ussdTemplate: '*155*1*{montant}*{numero}#' };
 
 async function getDepositSettings() {
-  const row = await prisma.setting.findUnique({ where: { key: SETTINGS_KEY } });
+  const row = await repository.setting.findUnique({ where: { key: SETTINGS_KEY } });
   if (!row) return DEFAULT_DEPOSIT_SETTINGS;
   try {
     const parsed = JSON.parse(row.value);
@@ -327,7 +337,7 @@ async function getDepositSettings() {
 }
 
 async function saveDepositSettings(settings) {
-  await prisma.setting.upsert({
+  await repository.setting.upsert({
     where: { key: SETTINGS_KEY },
     update: { value: JSON.stringify(settings) },
     create: { key: SETTINGS_KEY, value: JSON.stringify(settings) },
@@ -345,7 +355,7 @@ app.get('/api/deposit-settings', async (req, res, next) => {
 // ── Auth: register ──
 app.post('/api/auth/register', registerLimiter, async (req, res, next) => {
   try {
-    const { phone, password } = req.body;
+    const { phone, password } = req.body || {};
 
     if (!isValidPhone(phone)) {
       return res.status(400).json({ error: 'Numéro de téléphone invalide (format: +225XXXXXXXX).' });
@@ -359,13 +369,13 @@ app.post('/api/auth/register', registerLimiter, async (req, res, next) => {
       return res.status(409).json({ error: 'Ce numéro est réservé.' });
     }
 
-    const existing = await prisma.user.findUnique({ where: { phone } });
+    const existing = await repository.user.findUnique({ where: { phone } });
     if (existing) {
       return res.status(409).json({ error: 'Un compte existe déjà avec ce numéro.' });
     }
 
     const { salt, hash } = hashPassword(password);
-    const user = await prisma.user.create({
+    const user = await repository.user.create({
       data: { phone, passwordHash: hash, passwordSalt: salt, role: 'user', balance: 1700 },
     });
 
@@ -384,9 +394,9 @@ app.post('/api/auth/register', registerLimiter, async (req, res, next) => {
 // ── Auth: login ──
 app.post('/api/auth/login', loginLimiter, async (req, res, next) => {
   try {
-    const { phone, password } = req.body;
+    const { phone, password } = req.body || {};
 
-    if (!phone || !password) {
+    if (typeof phone !== 'string' || typeof password !== 'string' || !phone || !password) {
       return res.status(400).json({ error: 'Phone et mot de passe requis.' });
     }
     if (!isValidPhone(phone)) {
@@ -408,7 +418,7 @@ app.post('/api/auth/login', loginLimiter, async (req, res, next) => {
         recordFailure(phone);
         return res.status(401).json({ error: 'Identifiants invalides.' });
       }
-      const admin = await prisma.user.findUnique({ where: { phone } });
+      const admin = await repository.user.findUnique({ where: { phone } });
       if (!admin) {
         return res.status(500).json({ error: 'Compte admin non initialisé.' });
       }
@@ -423,7 +433,7 @@ app.post('/api/auth/login', loginLimiter, async (req, res, next) => {
     }
 
     // Regular user
-    const user = await prisma.user.findUnique({ where: { phone } });
+    const user = await repository.user.findUnique({ where: { phone } });
     if (!user || !verifyPassword(password, user.passwordHash, user.passwordSalt)) {
       recordFailure(phone);
       return res.status(401).json({ error: 'Identifiants invalides.' });
@@ -446,7 +456,7 @@ app.post('/api/auth/login', loginLimiter, async (req, res, next) => {
 app.post('/api/auth/logout', async (req, res, next) => {
   try {
     const token = req.headers.authorization?.replace('Bearer ', '');
-    if (token) await prisma.session.deleteMany({ where: { token } });
+    if (token) await repository.session.deleteMany({ where: { token } });
     res.json({ success: true });
   } catch (err) {
     next(err);
@@ -486,17 +496,17 @@ app.post('/api/auth/change-password', requireAuth, loginLimiter, async (req, res
       return res.status(400).json({ error: 'Le mot de passe admin se modifie dans la configuration serveur.' });
     }
 
-    const user = await prisma.user.findUnique({ where: { id: req.user.userId } });
+    const user = await repository.user.findUnique({ where: { id: req.user.userId } });
     if (!user || !verifyPassword(currentPassword, user.passwordHash, user.passwordSalt)) {
       return res.status(401).json({ error: 'Mot de passe actuel incorrect.' });
     }
 
     const { salt, hash } = hashPassword(newPassword);
-    await prisma.user.update({
+    await repository.user.update({
       where: { id: user.id },
       data: { passwordHash: hash, passwordSalt: salt },
     });
-    await prisma.session.deleteMany({
+    await repository.session.deleteMany({
       where: { userId: user.id, token: { not: req.user.token } },
     });
 
@@ -530,7 +540,7 @@ app.post('/api/deposits', requireAuth, paymentLimiter, async (req, res, next) =>
       return res.status(400).json({ error: 'Référence invalide.' });
     }
 
-    const tx = await prisma.transaction.create({
+    const tx = await repository.transaction.create({
       data: {
         userId: req.user.userId,
         type: 'deposit',
@@ -565,7 +575,7 @@ app.post('/api/withdrawals', requireAuth, payoutLimiter, async (req, res, next) 
       return res.status(400).json({ error: 'Opérateur invalide.' });
     }
 
-    const result = await prisma.$transaction(async (db) => {
+    const result = await repository.$transaction(async (db) => {
       const user = await db.user.findUnique({ where: { id: req.user.userId } });
       if (!user || user.balance < amount) {
         return { error: 'Solde insuffisant.' };
@@ -595,10 +605,39 @@ app.post('/api/withdrawals', requireAuth, payoutLimiter, async (req, res, next) 
   }
 });
 
+// Linked withdrawal accounts are stored per user, never in browser memory.
+app.get('/api/bank-accounts', requireAuth, async (req, res, next) => {
+  try {
+    res.json(await repository.bankAccount.findMany({ where: { userId: req.user.userId } }));
+  } catch (error) { next(error); }
+});
+
+app.post('/api/bank-accounts', requireAuth, async (req, res, next) => {
+  try {
+    const { number, countryCode } = req.body;
+    if (typeof number !== 'string' || !/^\+?\d{8,15}$/.test(number) || !isValidCountry(countryCode)) {
+      return res.status(400).json({ error: 'Numéro ou pays invalide.' });
+    }
+    const account = await repository.$transaction(async (db) => {
+      await db.user.findUnique({ where: { id: req.user.userId } });
+      const existing = await db.bankAccount.findFirst({ where: { userId: req.user.userId, number, countryCode } });
+      return existing || db.bankAccount.create({ data: { userId: req.user.userId, number, countryCode } });
+    });
+    res.status(201).json(account);
+  } catch (error) { next(error); }
+});
+
+app.delete('/api/bank-accounts/:id', requireAuth, async (req, res, next) => {
+  try {
+    await repository.bankAccount.deleteMany({ where: { id: req.params.id, userId: req.user.userId } });
+    res.json({ success: true });
+  } catch (error) { next(error); }
+});
+
 // ── User transactions ──
 app.get('/api/transactions', requireAuth, async (req, res, next) => {
   try {
-    const txs = await prisma.transaction.findMany({
+    const txs = await repository.transaction.findMany({
       where: { userId: req.user.userId },
       orderBy: { createdAt: 'desc' },
       take: 200,
@@ -618,7 +657,7 @@ app.post('/api/products/purchase', requireAuth, async (req, res, next) => {
       return res.status(400).json({ error: 'Produit inconnu.' });
     }
 
-    const result = await prisma.$transaction(async (db) => {
+    const result = await repository.$transaction(async (db) => {
       const user = await db.user.findUnique({ where: { id: req.user.userId } });
       if (!user || user.balance < product.price) {
         return { error: 'Solde insuffisant.' };
@@ -654,7 +693,7 @@ app.post('/api/products/purchase', requireAuth, async (req, res, next) => {
 // ── Products: owned list ──
 app.get('/api/purchases', requireAuth, async (req, res, next) => {
   try {
-    const txs = await prisma.transaction.findMany({
+    const txs = await repository.transaction.findMany({
       where: { userId: req.user.userId, type: 'purchase' },
       orderBy: { createdAt: 'desc' },
     });
@@ -675,19 +714,17 @@ app.post('/api/tasks/checkin', requireAuth, async (req, res, next) => {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
-    const existing = await prisma.transaction.findFirst({
-      where: {
-        userId: req.user.userId,
-        type: 'reward',
-        description: 'Pointage quotidien',
-        createdAt: { gte: startOfDay },
-      },
-    });
-    if (existing) {
-      return res.status(409).json({ error: 'Vous avez déjà pointé aujourd\'hui.' });
-    }
-
-    const result = await prisma.$transaction(async (db) => {
+    const result = await repository.$transaction(async (db) => {
+      await db.user.findUnique({ where: { id: req.user.userId } });
+      const existing = await db.transaction.findFirst({
+        where: {
+          userId: req.user.userId,
+          type: 'reward',
+          description: 'Pointage quotidien',
+          createdAt: { gte: startOfDay },
+        },
+      });
+      if (existing) return { error: "Vous avez déjà pointé aujourd'hui." };
       const updated = await db.user.update({
         where: { id: req.user.userId },
         data: { balance: { increment: 150 } },
@@ -704,6 +741,7 @@ app.post('/api/tasks/checkin', requireAuth, async (req, res, next) => {
       return { balance: updated.balance, transaction: tx };
     });
 
+    if (result.error) return res.status(409).json({ error: result.error });
     res.status(201).json({
       balance: result.balance,
       transaction: serializeTransaction(result.transaction),
@@ -719,10 +757,10 @@ app.get('/api/tasks/status', requireAuth, async (req, res, next) => {
     startOfDay.setHours(0, 0, 0, 0);
 
     const [days, today] = await Promise.all([
-      prisma.transaction.count({
+      repository.transaction.count({
         where: { userId: req.user.userId, type: 'reward', description: 'Pointage quotidien' },
       }),
-      prisma.transaction.findFirst({
+      repository.transaction.findFirst({
         where: {
           userId: req.user.userId,
           type: 'reward',
@@ -746,7 +784,7 @@ app.get('/api/admin/transactions', requireAuth, requireAdmin, async (req, res, n
     if (status && ['pending', 'approved', 'rejected'].includes(status)) where.status = status;
     if (type && ['deposit', 'withdraw'].includes(type)) where.type = type;
 
-    const txs = await prisma.transaction.findMany({
+    const txs = await repository.transaction.findMany({
       where,
       orderBy: { createdAt: 'desc' },
       take: 500,
@@ -762,7 +800,7 @@ app.get('/api/admin/transactions', requireAuth, requireAdmin, async (req, res, n
 app.post('/api/admin/transactions/:id/approve', requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const result = await prisma.$transaction(async (db) => {
+    const result = await repository.$transaction(async (db) => {
       const tx = await db.transaction.findUnique({ where: { id } });
       if (!tx || tx.status !== 'pending') return { error: 'Transaction introuvable ou déjà traitée.', code: 404 };
 
@@ -784,7 +822,7 @@ app.post('/api/admin/transactions/:id/approve', requireAuth, requireAdmin, async
 app.post('/api/admin/transactions/:id/reject', requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const result = await prisma.$transaction(async (db) => {
+    const result = await repository.$transaction(async (db) => {
       const tx = await db.transaction.findUnique({ where: { id } });
       if (!tx || tx.status !== 'pending') return { error: 'Transaction introuvable ou déjà traitée.', code: 404 };
 
@@ -805,7 +843,7 @@ app.post('/api/admin/transactions/:id/reject', requireAuth, requireAdmin, async 
 // ── Admin: users ──
 app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    const users = await prisma.user.findMany({
+    const users = await repository.user.findMany({
       orderBy: { createdAt: 'desc' },
       select: { id: true, phone: true, role: true, balance: true, createdAt: true },
     });
@@ -837,7 +875,7 @@ app.put('/api/admin/users/:userId/balance', requireAuth, requireAdmin, async (re
       return res.status(400).json({ error: 'Solde trop élevé (max 100 000 000).' });
     }
 
-    const user = await prisma.user.update({
+    const user = await repository.user.update({
       where: { id: userId },
       data: { balance: newBalance },
     });
@@ -878,6 +916,7 @@ app.put('/api/admin/deposit-settings', requireAuth, requireAdmin, async (req, re
 
 // ── Create payment (deposit) — AUTH REQUIRED ──
 app.post('/api/payments', requireAuth, paymentLimiter, (req, res) => {
+  if (!API_KEY || !API_SECRET) return res.status(503).json({ error: 'Les paiements en ligne ne sont pas encore configurés. Utilisez le dépôt Flooz.' });
   try {
     const { amount, currency, payment_method, customer, description, metadata } = req.body;
 
@@ -933,7 +972,7 @@ app.post('/api/payments', requireAuth, paymentLimiter, (req, res) => {
           try {
             const u = new URL(data.data.checkout_url);
             const trustedCheckoutDomains = ['geniuspay.ci', 'pay.genius.ci', 'checkout.geniuspay.ci'];
-            if (!trustedCheckoutDomains.some(d => u.hostname.endsWith(d))) {
+            if (!trustedCheckoutDomains.some(d => u.hostname === d || u.hostname.endsWith(`.${d}`))) {
               return res.status(400).json({ error: 'URL de checkout non fiable.' });
             }
           } catch {
@@ -954,6 +993,7 @@ app.post('/api/payments', requireAuth, paymentLimiter, (req, res) => {
 
 // ── Check payment status — PUBLIC (rate-limited) ──
 app.get('/api/payments/:reference', paymentLimiter, (req, res) => {
+  if (!API_KEY || !API_SECRET) return res.status(503).json({ error: 'Paiements en ligne non configurés.' });
   try {
     const { reference } = req.params;
 
@@ -997,54 +1037,8 @@ app.get('/api/providers/:country', requireAuth, (req, res) => {
 });
 
 // ── Create payout (withdrawal) — AUTH REQUIRED ──
-app.post('/api/payouts', requireAuth, payoutLimiter, (req, res) => {
-  try {
-    const { amount, currency, mmo_provider, account_number, description, metadata } = req.body;
-
-    if (!isValidAmount(amount)) {
-      return res.status(400).json({ error: `Le montant doit être un nombre entier entre ${MIN_AMOUNT} et ${MAX_DEPOSIT} FCFA.` });
-    }
-    if (!isValidCurrency(currency)) {
-      return res.status(400).json({ error: 'Devise invalide.' });
-    }
-    if (!isValidPhone(account_number)) {
-      return res.status(400).json({ error: 'Numéro de compte invalide (format: +225XXXXXXXX).' });
-    }
-    if (account_number !== req.user.phone) {
-      return res.status(403).json({ error: 'Le numéro de réception doit correspondre à votre compte.' });
-    }
-    if (mmo_provider && !ALLOWED_PAYMENT_METHODS.includes(mmo_provider)) {
-      return res.status(400).json({ error: 'Provider invalide.' });
-    }
-
-    const body = {
-      amount: Math.round(amount),
-      currency: currency || 'XOF',
-      account_number,
-      description: description ? sanitize(description, 500) : 'Retrait DIOTYTIO',
-    };
-
-    if (mmo_provider) body.mmo_provider = mmo_provider;
-    if (metadata) body.metadata = { type: sanitize(metadata.type, 50) };
-
-    fetch(`${GENIUSPAY_BASE}/payouts`, {
-      method: 'POST',
-      headers: geniusHeaders(),
-      body: JSON.stringify(body),
-    })
-      .then(response => response.json())
-      .then(data => {
-        if (data.error) return res.status(400).json(data);
-        res.json(data);
-      })
-      .catch(err => {
-        console.error('Payout error:', err.message);
-        res.status(500).json({ error: 'Erreur serveur lors du retrait.' });
-      });
-  } catch (err) {
-    console.error('Payout error:', err.message);
-    res.status(500).json({ error: 'Erreur serveur.' });
-  }
+app.post('/api/payouts', requireAuth, payoutLimiter, (_req, res) => {
+  return res.status(409).json({ error: 'Utilisez la demande de retrait avec validation administrateur.' });
 });
 
 // ── Webhook (GeniusPay notifications) — SIGNATURE REQUIRED ──
@@ -1077,24 +1071,17 @@ app.post('/api/webhook', webhookLimiter, (req, res) => {
   }
 });
 
-// ── Serve frontend build (online/production) ──
-const distPath = path.join(__dirname, '..', 'dist');
-app.use(express.static(distPath));
-app.use((req, res, next) => {
-  if (req.method !== 'GET' || req.path.startsWith('/api')) return next();
-  res.sendFile(path.join(distPath, 'index.html'), (err) => {
-    if (err) next(err);
-  });
-});
-
-// ── 404 ──
-app.use('/api/:path', (req, res) => {
+// Unknown API paths always return JSON.
+app.use('/api', (_req, res) => {
   res.status(404).json({ error: 'Endpoint non trouvé.' });
 });
 
 // ── Error handler ──
 app.use((err, _req, res, _next) => {
-  console.error('Unhandled error:', err.message);
+  console.error('API request failed:', err.code || err.cause?.code || 'internal_error');
+  if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'JSON invalide.' });
+  if (err.type === 'entity.too.large') return res.status(413).json({ error: 'Requête trop volumineuse.' });
+  if (err.code === '23505' || err.cause?.code === '23505') return res.status(409).json({ error: 'Cet enregistrement existe déjà.' });
   res.status(500).json({ error: 'Erreur serveur interne.' });
 });
 
@@ -1102,30 +1089,12 @@ app.use((err, _req, res, _next) => {
 async function ensureAdmin() {
   if (!ADMIN_PHONE || !ADMIN_PASSWORD) return;
   const { salt, hash } = hashPassword(ADMIN_PASSWORD);
-  await prisma.user.upsert({
+  await repository.user.upsert({
     where: { phone: ADMIN_PHONE },
     update: { role: 'admin', passwordHash: hash, passwordSalt: salt },
     create: { phone: ADMIN_PHONE, role: 'admin', passwordHash: hash, passwordSalt: salt },
   });
 }
 
-const PORT = process.env.PORT || 3001;
-
-async function start() {
-  await prisma.$connect();
-  await ensureAdmin();
-  app.listen(PORT, () => {
-    if (!API_KEY || API_KEY === 'pk_sandbox_XXXX') {
-      console.error('WARNING: GeniusPay API key not configured! Edit .env file.');
-    }
-    if (!ADMIN_PHONE || !ADMIN_PASSWORD) {
-      console.error('WARNING: Admin credentials not configured! Set ADMIN_PHONE and ADMIN_PASSWORD in .env');
-    }
-    console.log(`DIOTYTIO API server running on port ${PORT} (PostgreSQL connected)`);
-  });
+return { app, ensureAdmin };
 }
-
-start().catch((err) => {
-  console.error('FATAL: impossible de démarrer le serveur:', err.message);
-  process.exit(1);
-});

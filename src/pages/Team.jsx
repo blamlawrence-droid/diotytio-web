@@ -22,7 +22,7 @@ const Team = () => {
   const [showShareModal, setShowShareModal] = React.useState(false);
 
   const refCode = 'DT26GAME';
-  const refLink = `https://diotytio.com/register?ref=${refCode}`;
+  const refLink = `${window.location.origin}/register?ref=${encodeURIComponent(refCode)}`;
 
   const handleCopy = async (text) => {
     try {

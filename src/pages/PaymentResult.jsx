@@ -5,34 +5,34 @@ import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 const PaymentResult = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [status, setStatus] = useState('checking');
+  const reference = searchParams.get('reference') || searchParams.get('payment_id');
+  const [status, setStatus] = useState(reference ? 'checking' : 'error');
   const [paymentData, setPaymentData] = useState(null);
 
-  const reference = searchParams.get('reference') || searchParams.get('payment_id');
-
   useEffect(() => {
-    if (!reference) {
-      setStatus('error');
-      return;
-    }
-
+    if (!reference) return;
+    let cancelled = false;
+    let timer;
     const checkPayment = async () => {
       try {
-        const response = await fetch(`/api/payments/${reference}`);
+        const response = await fetch(`/api/payments/${encodeURIComponent(reference)}`);
         const data = await response.json();
 
+        if (cancelled) return;
         if (response.ok && data.data) {
           setPaymentData(data.data);
           setStatus(data.data.status === 'paid' ? 'success' : data.data.status === 'pending' ? 'pending' : 'error');
+          if (data.data.status === 'pending') timer = setTimeout(checkPayment, 5000);
         } else {
           setStatus('error');
         }
       } catch {
-        setStatus('error');
+        if (!cancelled) setStatus('error');
       }
     };
 
     checkPayment();
+    return () => { cancelled = true; clearTimeout(timer); };
   }, [reference]);
 
   if (status === 'checking') {

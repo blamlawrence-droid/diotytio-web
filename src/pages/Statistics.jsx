@@ -6,18 +6,17 @@ import { AreaChart, Area, Tooltip, ResponsiveContainer } from 'recharts';
 
 const Statistics = () => {
   const navigate = useNavigate();
-  const { balance, totalRevenue } = useStore();
+  const { balance, totalRevenue, transactions } = useStore();
   const [showBalance, setShowBalance] = useState(true);
 
-  const mockData = [
-    { date: '17 août', value: 0 },
-    { date: '18 août', value: 0 },
-    { date: '19 août', value: 0 },
-    { date: '20 août', value: 1200 },
-    { date: '21 août', value: 1500 },
-    { date: '22 août', value: 1700 },
-    { date: '23 août', value: balance },
-  ];
+  const earnings = Array.from({ length: 7 }, (_, i) => {
+    const day = new Date();
+    day.setDate(day.getDate() - (6 - i));
+    return {
+      date: day.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
+      value: transactions.filter(t => t.type === 'reward' && t.status === 'approved' && new Date(t.date).toDateString() === day.toDateString()).reduce((sum, t) => sum + t.amount, 0),
+    };
+  });
 
   return (
     <div className="container animate-fade-in" style={{ paddingBottom: '100px' }}>
@@ -35,7 +34,7 @@ const Statistics = () => {
             {showBalance ? `${balance.toLocaleString('fr-FR')} F` : '••••••'}
           </h2>
           <p style={{ fontSize: '11px', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '8px' }}>
-            <TrendingUp size={12} /> +100% ce mois
+            <TrendingUp size={12} /> Solde du compte
           </p>
         </div>
 
@@ -49,7 +48,7 @@ const Statistics = () => {
             {showBalance ? `${totalRevenue.toLocaleString('fr-FR')} F` : '••••••'}
           </h2>
           <p style={{ fontSize: '11px', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px', marginTop: '8px' }}>
-            <TrendingUp size={12} /> +0% ce mois
+            <TrendingUp size={12} /> Récompenses validées
           </p>
         </div>
       </div>
@@ -131,7 +130,7 @@ const Statistics = () => {
         
         <div style={{ height: '180px', width: '100%' }}>
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={mockData} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
+            <AreaChart data={earnings} margin={{ top: 10, right: 0, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.5}/>

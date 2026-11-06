@@ -1,10 +1,14 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useStore } from '../store';
 import { Plus, ShieldCheck, Wallet, Trash2 } from 'lucide-react';
 import CountryPicker from '../components/CountryPicker';
 
 const BankAccounts = () => {
-  const { bankAccounts, addBankAccount, removeBankAccount, showModal, country } = useStore();
+  const { bankAccounts, loadBankAccounts, addBankAccount, removeBankAccount, showModal, country } = useStore();
+
+  useEffect(() => {
+    loadBankAccounts().catch(error => showModal({ type: 'alert', title: 'Erreur', message: error.message }));
+  }, [loadBankAccounts, showModal]);
 
   const countryAccounts = bankAccounts.filter(acc => acc.countryCode === country.code);
 
@@ -13,7 +17,7 @@ const BankAccounts = () => {
       type: 'prompt',
       title: 'Ajouter un compte',
       message: `Veuillez saisir votre numéro Mobile Money en ${country.name} ${country.flag} :`,
-      onSubmit: (value) => {
+      onSubmit: async (value) => {
         const number = (value || '').trim();
         if (!number) {
           showModal({ type: 'alert', title: 'Erreur', message: 'Le numéro ne peut pas être vide.' });
@@ -27,8 +31,12 @@ const BankAccounts = () => {
           showModal({ type: 'alert', title: 'Erreur', message: 'Ce compte est déjà lié.' });
           return;
         }
-        addBankAccount(number);
-        showModal({ type: 'alert', title: 'Succès', message: `Votre compte ${number} a été ajouté avec succès.` });
+        try {
+          await addBankAccount(number);
+          showModal({ type: 'alert', title: 'Succès', message: `Votre compte ${number} a été ajouté avec succès.` });
+        } catch (error) {
+          showModal({ type: 'alert', title: 'Erreur', message: error.message });
+        }
       }
     });
   };
@@ -38,7 +46,10 @@ const BankAccounts = () => {
       type: 'confirm',
       title: 'Supprimer le compte',
       message: `Voulez-vous vraiment supprimer le compte ${acc.number} ?`,
-      onConfirm: () => removeBankAccount(acc.id)
+      onConfirm: async () => {
+        try { await removeBankAccount(acc.id); }
+        catch (error) { showModal({ type: 'alert', title: 'Erreur', message: error.message }); }
+      }
     });
   };
 

@@ -122,7 +122,8 @@ function App() {
         <Route path="/change-password" element={<ChangePassword />} />
         <Route path="/payment/success"  element={<PaymentResult />} />
         <Route path="/payment/error"    element={<PaymentResult />} />
-        <Route path="/admin"           element={<Admin />} />
+        <Route path="/admin"           element={isAdmin ? <Admin /> : <Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
       {/* Bottom nav — shown on main pages on ALL devices */}

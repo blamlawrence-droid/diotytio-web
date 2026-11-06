@@ -3,27 +3,27 @@ import { useStore } from '../store';
 import { X, CheckCircle2, AlertTriangle, Info, HelpCircle, ShieldCheck, Sparkles } from 'lucide-react';
 
 const Modal = () => {
-  const { modal, hideModal } = useStore();
+  const { modal } = useStore();
+  return modal ? <ModalContent key={modal.id} modal={modal} /> : null;
+};
+
+const ModalContent = ({ modal }) => {
+  const { hideModal } = useStore();
   const [inputValue, setInputValue] = useState('');
   const [animateIn, setAnimateIn] = useState(false);
 
   useEffect(() => {
-    if (modal) {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => setAnimateIn(true));
-      });
-    } else {
-      setAnimateIn(false);
-    }
-  }, [modal]);
+    const frame = requestAnimationFrame(() => setAnimateIn(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
 
   if (!modal) return null;
 
   const closeWithAnimation = (callback) => {
     setAnimateIn(false);
     setTimeout(() => {
-      if (callback) callback();
       hideModal();
+      if (callback) callback();
     }, 250);
   };
 
@@ -34,10 +34,7 @@ const Modal = () => {
   };
 
   const handleSubmit = () => {
-    if (modal.onSubmit) {
-      modal.onSubmit(inputValue);
-    }
-    closeWithAnimation();
+    closeWithAnimation(() => modal.onSubmit?.(inputValue));
     setInputValue('');
   };
 
