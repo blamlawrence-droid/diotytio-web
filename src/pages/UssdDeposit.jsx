@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { isValidDepositAmount } from '../depositAmount.js';
 import { useStore } from '../store';
 import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { Smartphone, Phone, CheckCircle2, ArrowLeft, Loader2 } from 'lucide-react';
@@ -40,7 +41,7 @@ const UssdDeposit = () => {
     : '';
   const ussd = customUssd ?? generatedUssd;
 
-  if (!data) return <Navigate to="/deposit" replace />;
+  if (!data || !isValidDepositAmount(amountValue)) return <Navigate to="/deposit" replace />;
 
   const { amount, operator, phone, country } = data;
 

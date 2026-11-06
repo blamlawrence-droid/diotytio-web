@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { parseDepositAmount, isValidDepositAmount } from '../depositAmount.js';
 import { useStore } from '../store';
 import { useNavigate } from 'react-router-dom';
 import { ShieldCheck, Smartphone, CheckCircle2, ArrowRight } from 'lucide-react';import CountryPicker from '../components/CountryPicker';
@@ -14,14 +15,14 @@ const Deposit = () => {
   const presets = [3000, 7000, 15000, 25000, 45000, 75000];
 
   const handleNextStep = () => {
-    const val = parseInt(amount.replace(/\D/g, ''));
-    if (!isNaN(val) && val >= 3000) {
+    const val = parseDepositAmount(amount);
+    if (isValidDepositAmount(val)) {
       setStep(2);
       if (country.operators && country.operators.length > 0) {
         setOperator(country.operators[0].name);
       }
     } else {
-      showModal({ type: 'alert', title: 'Erreur', message: 'Le montant minimum de dépôt est de 3 000 FCFA.' });
+      showModal({ type: 'alert', title: 'Erreur', message: 'Le montant du dépôt doit être un entier entre 3 000 et 1 000 000 FCFA.' });
     }
   };
 
@@ -31,7 +32,11 @@ const Deposit = () => {
       return;
     }
 
-    const val = parseInt(amount.replace(/\\D/g, ''));
+    const val = parseDepositAmount(amount);
+    if (!isValidDepositAmount(val)) {
+      showModal({ type: 'alert', title: 'Erreur', message: 'Le montant du dépôt doit être un entier entre 3 000 et 1 000 000 FCFA.' });
+      return;
+    }
     const fullPhone = `${country.dial}${phoneNumber}`;
 
     navigate('/deposit/ussd', { state: { amount: val, operator, phone: fullPhone, country } });
