@@ -1,72 +1,43 @@
 # Diotytio Web
 
-Application web de gestion de compte, dépôts/retraits mobile money, achats de produits et tâches quotidiennes.
+Application React/Vite avec une API Express déployée dans une fonction Netlify et une base PostgreSQL gérée par Netlify Database.
 
-## Stack
+## Installation et développement
 
-- **Frontend** : React 19, Vite, Tailwind, Zustand, React Router
-- **Backend** : Node.js, Express 5, Prisma
-- **Base de données** : PostgreSQL 16 (Docker)
-
-## Prérequis
-
-- Node.js 20+
-- Docker et Docker Compose
-
-## Installation
+Node.js 22.12 ou supérieur est requis.
 
 ```bash
 npm install
-cp .env.example .env
-# Renseignez les valeurs dans .env
+netlify dev --port 8889
 ```
 
-## Base de données
+Ouvrir http://localhost:8889. Cette commande lance Vite et les fonctions locales avec la configuration Netlify du projet. `npm run dev` lance uniquement le frontend ; les appels `/api` nécessitent Netlify Dev. `npm run server` lance l'API Express seule sur le port 3001 dans un environnement où la connexion Netlify Database est disponible.
+
+## Base de données et déploiement
+
+Le schéma est défini dans `db/schema.ts`. La connexion utilise `@netlify/database` et Drizzle, sans variable `DATABASE_URL` à fournir manuellement.
+
+Après une modification du schéma, générer une migration :
 
 ```bash
-docker compose up -d
-npm run db:generate
-npm run db:deploy
+npm run db:generate -- --name describe_schema_change
 ```
 
-## Développement
+Les migrations de `netlify/database/migrations` sont appliquées automatiquement par Netlify pendant le déploiement. Ne pas appliquer les anciennes migrations Prisma : le dossier `prisma` reste une référence de l'ancien schéma et ne pilote plus l'application. Sur une base neuve, les parcours utilisant les tables deviennent disponibles après le premier déploiement et ses migrations. `/api/health` vérifie la connexion à la base.
+
+Le frontend est publié depuis `dist`. Les routes `/api/*` sont traitées par la fonction `api` ; les autres routes sont servies par React Router, y compris lors d'un rechargement direct.
+
+## Configuration des services
+
+Configurer `ADMIN_PHONE` (format international) et `ADMIN_PASSWORD` dans l'environnement Netlify pour activer le compte administrateur. Le mot de passe doit comporter au moins huit caractères, une majuscule, une minuscule, un chiffre et un caractère spécial. L'administrateur définit le numéro Flooz dans l'interface et valide les demandes de dépôt et de retrait.
+
+Le parcours principal utilise des demandes de dépôt Flooz et de retrait validées manuellement. Les anciens endpoints de paiement GeniusPay nécessitent `GENIUSPAY_API_KEY`, `GENIUSPAY_API_SECRET`, ainsi que `WEBHOOK_SECRET` pour la vérification des notifications. Ils renvoient une erreur explicite si le service n'est pas configuré. Le webhook existant ne crédite pas automatiquement les comptes ; une intégration complète du rapprochement des paiements reste nécessaire avant d'activer ce parcours. Les versements directs sont désactivés au profit des demandes de retrait qui réservent le solde.
+
+## Vérification
 
 ```bash
-npm run dev
+npm run lint
+npm test
 ```
 
-- Frontend : http://localhost:5173
-- API : http://localhost:3001
-
-## Scripts
-
-| Commande | Description |
-| --- | --- |
-| `npm run dev` | Lance l'API et Vite en mode développement |
-| `npm run server` | Lance uniquement l'API |
-| `npm run build` | Build de production du frontend |
-| `npm run lint` | Analyse du code |
-| `npm run db:migrate` | Crée/applique une migration Prisma |
-| `npm run db:deploy` | Applique les migrations en production |
-| `npm run db:studio` | Ouvre Prisma Studio |
-
-## Variables d'environnement
-
-Voir `.env.example`. Ne jamais committer le fichier `.env`.
-
-Variables principales :
-
-- `DATABASE_URL` : URL PostgreSQL
-- `ADMIN_PHONE` / `ADMIN_PASSWORD` : compte administrateur créé au démarrage
-- `ALLOWED_ORIGINS` : origines CORS autorisées
-- `GENIUSPAY_API_KEY` / `GENIUSPAY_API_SECRET` : clés de paiement
-- `WEBHOOK_SECRET` : secret de vérification des webhooks
-
-## Structure
-
-```
-src/         Frontend React
-server/      API Express
-prisma/      Schéma et migrations PostgreSQL
-public/      Assets statiques
-```
+Les tests couvrent les réponses de l'API, la validation des requêtes et les protections des opérations financières. Les parcours avec une base réelle sont à vérifier après l'application automatique des migrations au déploiement.

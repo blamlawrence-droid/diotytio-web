@@ -44,7 +44,7 @@ const Tasks = () => {
             <img src="/assets/logo.png" alt="" style={{ width: '28px' }} />
           </div>
           <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Bonus cumulé</p>
-          <h3 style={{ fontSize: '22px', fontWeight: '800', color: 'var(--primary)' }}>FCFA 0</h3>
+          <h3 style={{ fontSize: '22px', fontWeight: '800', color: 'var(--primary)' }}>FCFA {(checkInDays * 150).toLocaleString('fr-FR')}</h3>
           <span style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '20px', border: '1px solid var(--primary)', color: 'var(--primary)' }}>Niveau 1 ›</span>
         </div>
 

@@ -39,7 +39,6 @@ const WelcomePopup = () => {
   ];
 
   const renderHighlightedText = (text, highlights) => {
-    let result = text;
     let parts = [text];
     highlights.forEach(h => {
       const newParts = [];

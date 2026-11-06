@@ -27,3 +27,6 @@ dist-ssr
 # Local user store (hashed passwords)
 server/users.json
 server/settings.json
+
+# Local Netlify folder
+.netlify

@@ -110,6 +110,11 @@ export const useStore = create((set, get) => ({
       phone: null,
       balance: 0,
       transactions: [],
+      products: [],
+      bankAccounts: [],
+      checkInDays: 0,
+      lastCheckInDate: null,
+      totalRevenue: 0,
       adminUsers: [],
       adminTransactions: [],
     });
@@ -142,7 +147,8 @@ export const useStore = create((set, get) => ({
     try {
       const res = await fetch('/api/transactions', { headers: authHeaders(token) });
       if (!res.ok) return;
-      set({ transactions: await res.json() });
+      const transactions = await res.json();
+      set({ transactions, totalRevenue: transactions.filter(t => t.type === 'reward' && t.status === 'approved').reduce((sum, t) => sum + t.amount, 0) });
     } catch {
       /* ignore */
     }
@@ -150,7 +156,7 @@ export const useStore = create((set, get) => ({
 
   toggleTheme: () => set((state) => ({ theme: state.theme === 'dark' ? 'light' : 'dark' })),
 
-  showModal: (config) => set({ modal: config }),
+  showModal: (config) => set({ modal: { ...config, id: crypto.randomUUID() } }),
   hideModal: () => set({ modal: null }),
 
   setCountry: (country) => set({ country }),
@@ -161,13 +167,30 @@ export const useStore = create((set, get) => ({
     set({ depositPhone, ussdTemplate });
   },
 
-  addBankAccount: (number) => set((state) => ({
-    bankAccounts: [...state.bankAccounts, { id: Date.now(), number, countryCode: state.country.code }]
-  })),
+  loadBankAccounts: async () => {
+    const res = await fetch('/api/bank-accounts', { headers: authHeaders(get().authToken) });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Chargement des comptes impossible.');
+    set({ bankAccounts: data });
+  },
 
-  removeBankAccount: (id) => set((state) => ({
-    bankAccounts: state.bankAccounts.filter(acc => acc.id !== id)
-  })),
+  addBankAccount: async (number) => {
+    const res = await fetch('/api/bank-accounts', {
+      method: 'POST', headers: authHeaders(get().authToken),
+      body: JSON.stringify({ number: number.replace(/\s/g, ''), countryCode: get().country.code }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Ajout du compte impossible.');
+    await get().loadBankAccounts();
+  },
+
+  removeBankAccount: async (id) => {
+    const res = await fetch(`/api/bank-accounts/${id}`, {
+      method: 'DELETE', headers: authHeaders(get().authToken),
+    });
+    if (!res.ok) throw new Error('Suppression du compte impossible.');
+    await get().loadBankAccounts();
+  },
 
   deposit: async (amount, meta = {}) => {
     const token = get().authToken;

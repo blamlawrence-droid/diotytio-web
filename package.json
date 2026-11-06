@@ -4,23 +4,23 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k \"npm:server\" \"vite\"",
-    "server": "node server/index.js",
+    "dev": "vite --host 127.0.0.1",
+    "server": "node server/start.js",
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "start": "concurrently -k \"npm:server\" \"vite --host\"",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:deploy": "prisma migrate deploy",
-    "db:studio": "prisma studio",
-    "postinstall": "prisma generate"
+    "start": "netlify dev --port 8889",
+    "db:generate": "drizzle-kit generate",
+    "db:status": "netlify db status",
+    "test": "node --test"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.3",
+    "@netlify/database": "^2.0.2",
+    "@netlify/functions": "^6.1.0",
     "concurrently": "^10.0.5",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
+    "drizzle-orm": "^1.0.0-beta.22",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0",
     "helmet": "^8.3.0",
@@ -29,14 +29,15 @@
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.2",
     "recharts": "^3.10.1",
+    "serverless-http": "^4.0.0",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.4",
+    "drizzle-kit": "^1.0.0-beta.22",
     "oxlint": "^1.75.0",
-    "prisma": "^6.19.3",
     "vite": "^8.2.0"
   }
 }

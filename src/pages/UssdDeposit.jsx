@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useStore } from '../store';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { Smartphone, Phone, CheckCircle2, ArrowLeft, Loader2 } from 'lucide-react';
 
 const UssdDeposit = () => {
@@ -9,7 +9,7 @@ const UssdDeposit = () => {
   const { deposit, showModal, depositPhone, ussdTemplate } = useStore();
 
   const data = location.state;
-  const [ussd, setUssd] = useState('');
+  const [customUssd, setCustomUssd] = useState(null);
   const [reference, setReference] = useState('');
   const [loading, setLoading] = useState(false);
   const [remoteSettings, setRemoteSettings] = useState(null);
@@ -33,18 +33,14 @@ const UssdDeposit = () => {
   const activeTemplate = remoteSettings?.ussdTemplate || ussdTemplate;
   const adminDigits = String(activeDepositPhone || '').replace(/\D/g, '');
 
-  useEffect(() => {
-    if (!activeDepositPhone || !amountValue) return;
-    const code = (activeTemplate || '*155*1*{montant}*{numero}#')
+  const generatedUssd = activeDepositPhone && amountValue
+    ? (activeTemplate || '*155*1*{montant}*{numero}#')
       .replace(/\{montant\}/g, amountValue)
-      .replace(/\{numero\}/g, adminDigits);
-    setUssd(code);
-  }, [activeDepositPhone, activeTemplate, amountValue, adminDigits]);
+      .replace(/\{numero\}/g, adminDigits)
+    : '';
+  const ussd = customUssd ?? generatedUssd;
 
-  if (!data) {
-    navigate('/deposit', { replace: true });
-    return null;
-  }
+  if (!data) return <Navigate to="/deposit" replace />;
 
   const { amount, operator, phone, country } = data;
 
@@ -116,7 +112,7 @@ const UssdDeposit = () => {
           type="text"
           placeholder="Ex: *155#"
           value={ussd}
-          onChange={(e) => setUssd(e.target.value)}
+          onChange={(e) => setCustomUssd(e.target.value)}
           className="form-input"
           style={{ marginBottom: '12px' }}
         />
